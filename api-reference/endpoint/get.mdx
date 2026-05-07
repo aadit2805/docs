@@ -1,4 +1,47 @@
 ---
-title: 'Get Plants'
-openapi: 'GET /plants'
+title: "Get Plants"
+openapi: "GET /plants"
 ---
+
+List courses in the catalog with optional filtering by department, free-text search, or semester.
+
+## Auth
+
+Public — no auth required.
+
+## Query parameters
+
+| Param | Type | Description |
+| --- | --- | --- |
+| `department` | `string` | Filter to a single department code (e.g. `CSCE`) |
+| `search` | `string` | Free-text search across course code and title |
+| `semester` | `string` | Filter to courses offered in a given semester (e.g. `Fall 2026`) |
+
+## Response
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "code": "CSCE 121",
+      "title": "Introduction to Program Design and Concepts",
+      "credits": 4,
+      "department": "CSCE",
+      "prereqs": null,
+      "average_gpa": 3.12
+    }
+  ],
+  "error": null
+}
+```
+
+## Example
+
+```bash
+curl "http://localhost:3001/api/courses?department=CSCE&search=algorithms"
+```
+
+<Note>
+  Grade distributions on this list endpoint are summarized as `average_gpa`. Hit `/api/courses/:id` for the full per-semester / per-professor distribution.
+</Note>

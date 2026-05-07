@@ -4,107 +4,79 @@ description: "Reusable, custom snippets to keep content in sync"
 icon: "recycle"
 ---
 
-import SnippetIntro from '/snippets/snippet-intro.mdx';
+The Sift frontend is a Next.js 16 App Router app. A few conventions are worth knowing before you make changes.
 
-<SnippetIntro />
+## Data fetching: `fetcher` → TanStack Query
 
-## Creating a custom snippet
+Every API call goes through one stack:
 
-**Pre-condition**: You must create your snippet file in the `snippets` directory.
+```ts
+// client/src/lib/api.ts
+import { API_BASE, fetcher } from "@/lib/api";
 
-<Note>
-  Any page in the `snippets` directory will be treated as a snippet and will not
-  be rendered into a standalone page. If you want to create a standalone page
-  from the snippet, import the snippet into another file and call it as a
-  component.
-</Note>
-
-### Default export
-
-1. Add content to your snippet file that you want to re-use across multiple
-   locations. Optionally, you can add variables that can be filled in via props
-   when you import the snippet.
-
-```mdx snippets/my-snippet.mdx
-Hello world! This is my content I want to reuse across pages. My keyword of the
-day is {word}.
+export async function getCourses() {
+  return fetcher<Course[]>(`${API_BASE}/api/courses`);
+}
 ```
 
-<Warning>
-  The content that you want to reuse must be inside the `snippets` directory in
-  order for the import to work.
-</Warning>
-
-2. Import the snippet into your destination file.
-
-```mdx destination-file.mdx
----
-title: My title
-description: My Description
----
-
-import MySnippet from '/snippets/path/to/my-snippet.mdx';
-
-## Header
-
-Lorem impsum dolor sit amet.
-
-<MySnippet word="bananas" />
+```ts
+// client/src/lib/queries.ts
+export function useCourses() {
+  return useQuery({
+    queryKey: queryKeys.courses(),
+    queryFn: getCourses,
+  });
+}
 ```
 
-### Reusable variables
+Rules of the road:
 
-1. Export a variable from your snippet file:
+- **Don't bypass `fetcher()`** — it adds the Clerk auth token. Direct `fetch` calls will look anonymous to the server.
+- **Don't duplicate `API_BASE`** — import it from `api.ts`.
+- **Use the query-key factory** — every queryKey lives in `queries.ts`. This keeps invalidation correct.
 
-```mdx snippets/path/to/custom-variables.mdx
-export const myName = 'my name';
+## Tailwind v4
 
-export const myObject = { fruit: 'strawberries' };
+There is **no** `tailwind.config.ts`. Theme lives in `client/src/app/globals.css` using `@theme inline`:
+
+```css
+@theme inline {
+  --color-sift-amber: oklch(0.55 0.15 30);   /* maroon primary */
+  --color-sift-green: oklch(0.7 0.15 145);
+  --color-sift-red:   oklch(0.6 0.2 25);
+  --color-sift-blue:  oklch(0.65 0.15 230);
+  --color-sift-purple:oklch(0.55 0.2 290);
+  --color-sift-surface:        oklch(0.98 0 0);
+  --color-sift-surface-raised: oklch(1 0 0);
+}
 ```
 
-2. Import the snippet from your destination file and use the variable:
+Use the `sift-*` tokens directly — `bg-sift-surface`, `text-sift-amber`, etc.
 
-```mdx destination-file.mdx
----
-title: My title
-description: My Description
----
+## Typography
 
-import { myName, myObject } from '/snippets/path/to/custom-variables.mdx';
+- `font-mono` is **only** for data (course codes, GPAs, percentages, credit counts)
+- Labels, headings, and body copy use the default sans-serif
+- A&M collegiate light theme — maroon / black / white, light background, white cards, subtle shadows
 
-Hello, my name is {myName} and I like {myObject.fruit}.
-```
+## Components
 
-### Reusable components
+- All base components are shadcn/ui — `client/src/components/ui/`
+- Add new ones with `npx shadcn@latest add <component>`
+- Prefer **server components**; opt into client components only for interactivity
+- Every route has a `loading.tsx` Suspense boundary with a skeleton matching the layout
+- Route transitions show a `NavProgress` bar (`client/src/components/nav-progress.tsx`)
 
-1. Inside your snippet file, create a component that takes in props by exporting
-   your component in the form of an arrow function.
+## Error messages
 
-```mdx snippets/custom-component.mdx
-export const MyComponent = ({ title }) => (
-  <div>
-    <h1>{title}</h1>
-    <p>... snippet content ...</p>
-  </div>
-);
-```
+User-facing error messages must be **friendly and generic**. Don't leak:
 
-<Warning>
-  MDX does not compile inside the body of an arrow function. Stick to HTML
-  syntax when you can or use a default export if you need to use MDX.
-</Warning>
+- Raw API errors
+- Port numbers
+- "Make sure the backend is running" or other dev-facing instructions
 
-2. Import the snippet into your destination file and pass in the props
+Wrap your `error` strings before showing them.
 
-```mdx destination-file.mdx
----
-title: My title
-description: My Description
----
+## Completed-courses storage
 
-import { MyComponent } from '/snippets/custom-component.mdx';
-
-Lorem ipsum dolor sit amet.
-
-<MyComponent title={'Custom title'} />
-```
+Completed courses live in `localStorage` under the key `sift_completed_courses` for unauthenticated users. After sign-in, `POST /api/user/profile/migrate` ports them into the user's profile.

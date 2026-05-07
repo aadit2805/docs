@@ -1,4 +1,56 @@
 ---
-title: 'Delete Plant'
-openapi: 'DELETE /plants/{id}'
+title: "Delete Plant"
+openapi: "DELETE /plants/{id}"
 ---
+
+Accepts an unofficial transcript PDF, runs `pdf-parse` to extract text, then uses the **Claude API (Haiku)** to pull structured course history.
+
+## Auth
+
+**Required.** The backend calls `requireAuth` and writes results to the authenticated user's profile.
+
+## Rate limit
+
+`10 requests per 15 minutes` — tighter than the general API because each call hits the Claude API.
+
+## Request
+
+`multipart/form-data` with one file field.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `transcript` | `File` | The unofficial transcript PDF |
+
+```bash
+curl -X POST http://localhost:3001/api/transcript/parse \
+  -H "Authorization: Bearer $CLERK_TOKEN" \
+  -F "transcript=@unofficial_transcript.pdf"
+```
+
+## Response
+
+```json
+{
+  "data": {
+    "courses": [
+      { "code": "CSCE 121", "credits": 4, "grade": "A", "semester": "Fall 2024" },
+      { "code": "MATH 151", "credits": 4, "grade": "B", "semester": "Fall 2024" }
+    ],
+    "extracted_count": 24
+  },
+  "error": null
+}
+```
+
+## Failure modes
+
+| Cause | Symptom |
+| --- | --- |
+| File isn't a PDF | `error: "Unsupported file type"` |
+| `pdf-parse` returns empty text | `error: "Could not read transcript"` |
+| Claude returns malformed JSON | `error: "Could not parse transcript"` (rare; we prompt for strict JSON) |
+| Rate limit hit | `429` with friendly retry copy |
+
+<Note>
+  Extracted courses are merged into the user's existing `completed_courses`, not replaced. Re-uploading the same transcript is idempotent.
+</Note>

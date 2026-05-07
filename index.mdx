@@ -3,95 +3,47 @@ title: "Introduction"
 description: "Welcome to the new home for your documentation"
 ---
 
-## Setting up
+**Sift** is an academic planning tool for Texas A&M students. It synthesizes grade distributions, professor ratings, prerequisite chains, and your transcript to surface course recommendations and generate multi-semester degree plans you can actually trust.
 
-Get your documentation site up and running in minutes.
+## What Sift does
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Smart recommendations" icon="sparkles">
+    Score every (course, professor) combo against your priorities — GPA, professor ratings, difficulty, requirements — and get a ranked list.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
 
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+  <Card title="Multi-semester planner" icon="calendar-days">
+    Generate four valid degree plan variants (fastest, highest GPA, balanced, best professors) honoring prerequisites and credit limits.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
 
-## Need inspiration?
+  <Card title="Transcript ingest" icon="file-arrow-up">
+    Upload your unofficial transcript PDF and Sift extracts your completed coursework using Claude.
+  </Card>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+  <Card title="Degree progress" icon="graduation-cap">
+    See remaining requirements computed against your major's degree plan, with equivalency mapping handled automatically.
+  </Card>
+</CardGroup>
+
+## Who it's for
+
+Undergraduates in CSCE for V1, with the data pipeline designed to extend to other Texas A&M departments. If you've ever stared at Howdy and Anex tabs in parallel trying to decide which professor to take next semester, Sift is for you.
+
+## How it works
+
+1. **Sign in** with your account (Clerk handles auth).
+2. **Upload** your transcript or pick completed courses manually.
+3. **Set priorities** — do you optimize for GPA, finishing fast, easier professors, or a balance?
+4. **Get a plan** — Sift returns four ranked plan variants and per-course recommendations.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="play" href="/quickstart">
+    Run Sift end-to-end in five minutes.
+  </Card>
+
+  <Card title="For developers" icon="code" href="/developers/architecture">
+    Architecture, API reference, and how the scoring \+ solver work under the hood.
+  </Card>
+</CardGroup>

@@ -1,94 +1,83 @@
 ---
-title: 'Development'
-description: 'Preview changes locally to update your docs'
+title: "Development"
+description: "Preview changes locally to update your docs"
 ---
+
+Sift is a monorepo with two packages — `client/` (Next.js) and `server/` (Express) — run concurrently from the project root.
 
 <Info>
   **Prerequisites**:
-  - Node.js version 19 or higher
-  - A docs repository with a `docs.json` file
+
+  - Node.js 19\+
+  - `make` (preinstalled on macOS/Linux; on Windows use WSL)
+  - Supabase, Clerk, and Anthropic API credentials
 </Info>
 
-Follow these steps to install and run Mintlify on your operating system.
-
-<Steps>
-<Step title="Install the Mintlify CLI">
+## Install
 
 ```bash
-npm i -g mint
+make install
 ```
-</Step>
 
-<Step title="Preview locally">
+Installs dependencies for both `client/` and `server/`.
 
-Navigate to your docs directory where your `docs.json` file is located, and run the following command:
+## Run the dev servers
 
 ```bash
-mint dev
+make dev
 ```
 
-A local preview of your documentation will be available at `http://localhost:3000`.
+- Frontend on `http://localhost:3000`
+- Backend on `http://localhost:3001`
 
-</Step>
-</Steps>
+<Note>
+  `make dev` runs `tsx` one-shot — the server does **not** auto-reload. For server auto-reload during development, use `npm run dev` from the project root instead. It uses `concurrently` and the server's `tsx watch`.
+</Note>
 
-## Custom ports
+## Common tasks
 
-By default, Mintlify uses port 3000. You can customize the port Mintlify runs on by using the `--port` flag. For example, to run Mintlify on port 3333, use this command:
+| Command | Purpose |
+| --- | --- |
+| `make client` | Frontend only |
+| `make server` | Backend only |
+| `make scrape` | Run the data scraper (Anex \+ RateMyProfessors → Supabase) |
+| `make clean` | Remove build artifacts and `node_modules` |
+
+Build \+ type check:
 
 ```bash
-mint dev --port 3333
+cd client && npx next build       # Frontend build + type check
+cd server && npx tsc --noEmit     # Backend type check
+cd client && npm run lint         # Frontend lint
 ```
 
-If you attempt to run Mintlify on a port that's already in use, it will use the next available port:
+There are no tests in this codebase — no test framework is configured.
 
-```md
-Port 3000 is already in use. Trying 3001 instead.
-```
+## Environment variables
 
-## Mintlify versions
-
-Please note that each CLI release is associated with a specific version of Mintlify. If your local preview does not align with the production version, please update the CLI:
+### `client/.env.local`
 
 ```bash
-npm mint update
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
+CLERK_SECRET_KEY=...
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 ```
 
-## Validating links
-
-The CLI can assist with validating links in your documentation. To identify any broken links, use the following command:
+### `server/.env`
 
 ```bash
-mint broken-links
+PORT=3001
+FRONTEND_URL=http://localhost:3000
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...
+ANTHROPIC_API_KEY=...
+CLERK_SECRET_KEY=...
+CLERK_PUBLISHABLE_KEY=...
 ```
 
-## Deployment
+## Hosting
 
-If the deployment is successful, you should see the following:
-
-<Frame>
-  <img src="/images/checks-passed.png" alt="Screenshot of a deployment confirmation message that says All checks have passed." style={{ borderRadius: '0.5rem' }} />
-</Frame>
-
-## Code formatting
-
-We suggest using extensions on your IDE to recognize and format MDX. If you're a VSCode user, consider the [MDX VSCode extension](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx) for syntax highlighting, and [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) for code formatting.
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion title='Error: Could not load the "sharp" module using the darwin-arm64 runtime'>
-
-    This may be due to an outdated version of node. Try the following:
-    1. Remove the currently-installed version of the CLI: `npm remove -g mint`
-    2. Upgrade to Node v19 or higher.
-    3. Reinstall the CLI: `npm i -g mint`
-  </Accordion>
-
-  <Accordion title="Issue: Encountering an unknown error">
-  
-    Solution: Go to the root of your device and delete the `~/.mintlify` folder. Then run `mint dev` again.
-  </Accordion>
-</AccordionGroup>
-
-Curious about what changed in the latest CLI version? Check out the [CLI changelog](https://www.npmjs.com/package/mintlify?activeTab=versions).
+- **Frontend** — Vercel (Next.js)
+- **Backend** — Railway / Fly.io (Express). Note: backend trusts the proxy so rate limits work behind Railway.

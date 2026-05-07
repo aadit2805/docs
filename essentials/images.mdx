@@ -1,59 +1,57 @@
 ---
-title: 'Images and embeds'
-description: 'Add image, video, and other HTML elements'
-icon: 'image'
+title: "Images and embeds"
+description: "Add image, video, and other HTML elements"
+icon: "image"
 ---
 
-<img
-  style={{ borderRadius: '0.5rem' }}
-  src="https://mintlify-assets.b-cdn.net/bigbend.jpg"
-/>
+The V2 planner generates **valid multi-semester degree plans** from a student's completed courses \+ remaining requirements. Plans are saved as JSONB to the `semester_plans` table and scoped per-user.
 
-## Image
+## End-to-end pipeline
 
-### Using Markdown
+<Steps>
+  <Step title="Build the prerequisite DAG">
+    `prereq-graph.ts` reads `courses.prereqs` and constructs an in-memory DAG. There's no separate prereq table — keeping the source of truth on the course row simplified the scraper and avoids drift.
+  </Step>
+  <Step title="Run the greedy solver">
+    `solver.ts` walks future semesters one at a time. For each, it:
 
-The [markdown syntax](https://www.markdownguide.org/basic-syntax/#images) lets you add images using the following code
+    1. Computes the **ready set** — courses whose prereqs are satisfied and that are offered in that season.
+    2. Sorts the ready set by the active **priority function**.
+    3. Assigns the top-N up to the **credit limit**.
+    4. Adds those to the "completed" set for the next iteration.
+  </Step>
+  <Step title="Repeat with four objectives">
+    The solver runs **four times** with different priority functions:
 
-```md
-![title](/path/image.jpg)
-```
+    - `fastest` — finish as early as possible (uses critical-path distance)
+    - `highest_gpa` — maximize expected course GPA
+    - `balanced` — even credit load across semesters
+    - `best_professors` — prioritize professor rating
+  </Step>
+  <Step title="Score and return">
+    Each plan is scored against the same weighted formula used by recommendations. The four plans \+ scores are returned to the client; the user picks one and saves it.
+  </Step>
+</Steps>
 
-Note that the image file size must be less than 5MB. Otherwise, we recommend hosting on a service like [Cloudinary](https://cloudinary.com/) or [S3](https://aws.amazon.com/s3/). You can then use that URL and embed.
+## Storage
 
-### Using embeds
+- **Table** — `semester_plans` (see migration `003_semester_plans.sql`)
+- **Shape** — JSONB containing `{ semesters, scores }`
+- **Scoping** — every row is keyed by `user_id`; deletes cascade
 
-To get more customizability with images, you can also use [embeds](/writing-content/embed) to add images
+## API surface
 
-```html
-<img height="200" src="/path/image.jpg" />
-```
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/planner/generate` | Returns 4 plan variants |
+| `POST` | `/api/planner/save` | Persists a chosen plan to `semester_plans` |
+| `GET` | `/api/planner/plans` | Lists the user's saved plans |
+| `DELETE` | `/api/planner/plans/:id` | Removes a saved plan |
 
-## Embeds and HTML elements
+All planner endpoints require auth.
 
-<iframe
-  width="560"
-  height="315"
-  src="https://www.youtube.com/embed/4KzFe50RQkQ"
-  title="YouTube video player"
-  frameBorder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-  allowFullScreen
-  style={{ width: '100%', borderRadius: '0.5rem' }}
-></iframe>
+## Known limits
 
-<br />
-
-<Tip>
-
-Mintlify supports [HTML tags in Markdown](https://www.markdownguide.org/basic-syntax/#html). This is helpful if you prefer HTML tags to Markdown syntax, and lets you create documentation with infinite flexibility.
-
-</Tip>
-
-### iFrames
-
-Loads another HTML page within the document. Most commonly used for embedding videos.
-
-```html
-<iframe src="https://www.youtube.com/embed/4KzFe50RQkQ"> </iframe>
-```
+- The solver is **greedy**, not optimal. It's fast and good-enough; a constraint solver would be marginally better in pathological cases.
+- Killer-combo detection runs **after** plan generation. The solver doesn't avoid them proactively — re-run with a different objective if you don't like the warning.
+- **No section data** — scheduling preferences (e.g. avoid 8 AMs) are disabled until we ingest the section catalog.

@@ -1,35 +1,71 @@
 ---
-title: 'Code blocks'
-description: 'Display inline code and code blocks'
-icon: 'code'
+title: "Code blocks"
+description: "Display inline code and code blocks"
+icon: "code"
 ---
 
-## Inline code
+The recommendation and planning logic lives in `server/src/services/`. Two pieces are worth understanding deeply: the **scoring formula** (used by recommendations) and the **solver** (used by the multi-semester planner).
 
-To denote a `word` or `phrase` as code, enclose it in backticks (`).
+## Scoring (`scoring.ts`)
 
+Every (course, professor) combo gets a weighted score out of the following signals:
+
+| Signal | Default weight | Source |
+| --- | --- | --- |
+| Course GPA | 0.25 | `grade_distributions` (Anex) |
+| Professor rating | 0.20 | RateMyProfessors |
+| Would-take-again | 0.15 | RateMyProfessors |
+| Difficulty (inverted) | 0.15 | RateMyProfessors |
+| Requirement urgency | 0.15 | computed against degree plan |
+| Schedule fit | 0.00 | **disabled in V1** — no section data yet |
+
+The user can override these weights from the recommendations UI; the backend honors them per-request.
+
+<Note>
+  Schedule fit is wired through end-to-end but its weight is set to 0 because we haven't scraped section meeting times. It'll light up in V2 once `sections` is populated.
+</Note>
+
+## Solver (`solver.ts`)
+
+The multi-semester planner generates four full degree plans by running a greedy-topological assignment four times with different priority functions.
+
+```text
+1. Build a DAG from courses.prereqs (in-memory; no separate table).
+2. For each future semester:
+   a. Get courses ready to take (prereqs satisfied + offered that season).
+   b. Sort them by the active priority function.
+   c. Assign top-N up to the credit limit.
+   d. Mark assigned courses as completed for the next iteration.
+3. Run four passes with different objectives:
+   - fastest          — finish as early as possible
+   - highest_gpa      — maximize expected GPA
+   - balanced         — even credit load
+   - best_professors  — prioritize professor rating
+4. Return all four plans + scores.
 ```
-To denote a `word` or `phrase` as code, enclose it in backticks (`).
-```
 
-## Code blocks
+### Prereq graph (`prereq-graph.ts`)
 
-Use [fenced code blocks](https://www.markdownguide.org/extended-syntax/#fenced-code-blocks) by enclosing code in three backticks and follow the leading ticks with the programming language of your snippet to get syntax highlighting. Optionally, you can also write the name of your code after the programming language.
+- DAG built lazily from `courses.prereqs`
+- Topological sort uses Kahn's algorithm
+- Critical path computed for "fastest" objective
+- "Ready" filtering combines prereq satisfaction with seasonal offering
 
-```java HelloWorld.java
-class HelloWorld {
-    public static void main(String[] args) {
-        System.out.println("Hello, World!");
-    }
-}
-```
+### Killer-combo detection (`workload.ts`)
 
-````md
-```java HelloWorld.java
-class HelloWorld {
-    public static void main(String[] args) {
-        System.out.println("Hello, World!");
-    }
-}
-```
-````
+When a generated plan packs two known-brutal courses into one semester, the planner emits a warning. Detection has two layers:
+
+1. **Hardcoded CSCE pairings** — e.g. CSCE 312 \+ CSCE 411 in the same semester
+2. **Heuristic** — flag any pair where both courses are above a difficulty threshold
+
+Killer combos don't block plan generation; they surface in the UI so the student can re-run with a different objective if they want.
+
+## Requirement computation (`requirements.ts`)
+
+Both `/api/degree-plan/remaining` and `/api/recommendations` use the same shared remaining-requirements computation. Highlights:
+
+- Equivalency mapping (e.g. MATH 151 ≡ MATH 171) handled centrally
+- Credit tracking is summed across equivalent courses
+- Result is keyed by requirement bucket so the UI can render progress per category
+
+Keeping this in one service was a deliberate choice — duplicating the logic across routes drifted within a week of being introduced.

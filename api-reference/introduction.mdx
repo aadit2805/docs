@@ -1,33 +1,72 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "Introduction"
+description: "Example section for showcasing API endpoints"
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+The Sift backend is an Express app on `:3001` (`http://localhost:3001` in dev). Every endpoint returns a uniform shape:
 
-## Welcome
+```ts
+{ data: T | null, error: string | null }
+```
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
-
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+If `error` is non-null, treat the request as failed regardless of HTTP status.
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+Auth uses **Clerk**. The frontend's `fetcher()` automatically attaches the user's session token as `Authorization: Bearer <token>`.
 
-```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
-```
+Endpoints flagged as **Auth required** call `requireAuth` middleware which extracts `userId` from the Clerk session. Public endpoints skip it.
+
+## Rate limits
+
+| Bucket | Window | Limit |
+| --- | --- | --- |
+| General API | 15 min | 300 requests |
+| Transcript upload | 15 min | 10 requests |
+
+## Endpoint index
+
+### Catalog (public)
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/courses` | List courses (filter: `department`, `search`, `semester`) |
+| `GET` | `/api/courses/:id` | Course detail with sections \+ grade distributions |
+| `GET` | `/api/professors` | List professors (filter: `department`, `search`, `course_id`) |
+| `GET` | `/api/professors/:id` | Professor detail with grade history |
+
+### Recommendations & degree plan (public)
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/recommendations` | Scored (course, professor) combos. Returns `{ courses, warnings }`. |
+| `GET` | `/api/degree-plan/:major` | Degree plan for a major |
+| `POST` | `/api/degree-plan/remaining` | Compute remaining requirements for a student |
+
+### User profile (auth required)
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/transcript/parse` | Upload PDF; Claude extracts completed coursework |
+| `GET` | `/api/user/profile` | Get the authenticated user's profile |
+| `PUT` | `/api/user/profile` | Update profile |
+| `POST` | `/api/user/profile/migrate` | Migrate localStorage completed-courses into the profile |
+
+### Multi-semester planner (auth required)
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/planner/generate` | Generate 4 multi-semester plan variants |
+| `POST` | `/api/planner/save` | Persist a chosen plan |
+| `GET` | `/api/planner/plans` | List the user's saved plans |
+| `DELETE` | `/api/planner/plans/:id` | Delete a saved plan |
+
+### Health
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/health` | Health check (no `{ data, error }` wrapper) |
+
+## Why this shape?
+
+Returning `{ data, error }` instead of throwing on the client lets callers handle failure inline without a `try`/`catch` around every fetch. The pattern is enforced by `fetcher()`, so any new endpoint that doesn't conform will surface as a TypeScript error.

@@ -1,88 +1,64 @@
 ---
-title: 'Markdown syntax'
-description: 'Text, title, and styling in standard markdown'
-icon: 'text-size'
+title: "Markdown syntax"
+description: "Text, title, and styling in standard markdown"
+icon: "text-size"
 ---
 
-## Titles
+Sift is a monorepo with two independent packages: `client/` (Next.js) and `server/` (Express), run concurrently via `make dev`. They communicate over HTTP, with Clerk handling auth on both sides.
 
-Best used for section headers.
+## High-level flow
 
-```md
-## Titles
+```mermaid
+flowchart LR
+  U[Student] -->|browser| C[Next.js client :3000]
+  C -->|fetcher + Clerk token| S[Express server :3001]
+  S --> DB[(Supabase / Postgres)]
+  S --> A[Anthropic Claude API]
+  DB <--- SCR[Scraper script]
+  SCR --> ANEX[Anex grade dist]
+  SCR --> RMP[RateMyProfessors]
 ```
 
-### Subtitles
+## Client
 
-Best used for subsection headers.
+Next.js 16 App Router with React 19, TypeScript, Tailwind v4, shadcn/ui, and TanStack Query.
 
-```md
-### Subtitles
-```
+- **API client** — `client/src/lib/api.ts` exposes `fetcher()` which adds the Clerk auth token to every request and returns `{ data: T | null, error: string | null }`. `API_BASE` is exported from this file — never duplicate it.
+- **Query hooks** — `client/src/lib/queries.ts` wraps each API function in a TanStack Query hook with 5min `staleTime`, 1 retry, and `refetchOnWindowFocus` disabled.
+- **Auth tokens** — `client/src/lib/auth-token.ts` reads the Clerk session token before each request.
+- **Types** — `client/src/lib/types.ts` mirrors `server/src/types/index.ts`. **Keep them in sync manually.**
 
-<Tip>
+## Server
 
-Each **title** and **subtitle** creates an anchor and also shows up on the table of contents on the right.
+Express on TypeScript with `tsx` for dev.
 
-</Tip>
+- **Routes** — `server/src/routes/*.ts`. Each file exports a router; routers are mounted in `server/src/index.ts`.
+- **Services** — shared business logic lives in `server/src/services/`:
+  - `scoring.ts` — weighted score for (course, professor) combos
+  - `requirements.ts` — remaining-requirements computation; handles equivalency mapping
+  - `workload.ts` — killer-combo detection (hardcoded CSCE pairings \+ heuristic)
+  - `prereq-graph.ts` — DAG over `courses.prereqs` with topological sort \+ critical-path
+  - `solver.ts` — greedy multi-semester plan generator (4 passes, different objectives)
+- **Middleware** — `server/src/middleware/auth.ts` exposes `requireAuth` which extracts `userId` from Clerk's `clerkMiddleware()` for protected endpoints.
 
-## Text formatting
+## Data layer
 
-We support most markdown formatting. Simply add `**`, `_`, or `~` around text to format it.
+- **Supabase / Postgres** with `pgvector` reserved for future RAG.
+- Core tables: `courses`, `sections`, `professors`, `grade_distributions`, `degree_plans`, `users`, `semester_plans`.
+- Migrations live in `supabase/migrations/`.
+- Data is populated by `server/scripts/scrape.ts` — Anex (grade distributions) \+ RateMyProfessors (ratings).
 
-| Style         | How to write it   | Result          |
-| ------------- | ----------------- | --------------- |
-| Bold          | `**bold**`        | **bold**        |
-| Italic        | `_italic_`        | _italic_        |
-| Strikethrough | `~strikethrough~` | ~strikethrough~ |
+## API contract
 
-You can combine these. For example, write `**_bold and italic_**` to get **_bold and italic_** text.
+Every endpoint returns `{ data, error }`. See [API Reference](/api-reference/introduction) for the full surface.
 
-You need to use HTML to write superscript and subscript text. That is, add `<sup>` or `<sub>` around your text.
+## Conventions
 
-| Text Size   | How to write it          | Result                 |
-| ----------- | ------------------------ | ---------------------- |
-| Superscript | `<sup>superscript</sup>` | <sup>superscript</sup> |
-| Subscript   | `<sub>subscript</sub>`   | <sub>subscript</sub>   |
-
-## Linking to pages
-
-You can add a link by wrapping text in `[]()`. You would write `[link to google](https://google.com)` to [link to google](https://google.com).
-
-Links to pages in your docs need to be root-relative. Basically, you should include the entire folder path. For example, `[link to text](/writing-content/text)` links to the page "Text" in our components section.
-
-Relative links like `[link to text](../text)` will open slower because we cannot optimize them as easily.
-
-## Blockquotes
-
-### Singleline
-
-To create a blockquote, add a `>` in front of a paragraph.
-
-> Dorothy followed her through many of the beautiful rooms in her castle.
-
-```md
-> Dorothy followed her through many of the beautiful rooms in her castle.
-```
-
-### Multiline
-
-> Dorothy followed her through many of the beautiful rooms in her castle.
->
-> The Witch bade her clean the pots and kettles and sweep the floor and keep the fire fed with wood.
-
-```md
-> Dorothy followed her through many of the beautiful rooms in her castle.
->
-> The Witch bade her clean the pots and kettles and sweep the floor and keep the fire fed with wood.
-```
-
-### LaTeX
-
-Mintlify supports [LaTeX](https://www.latex-project.org) through the Latex component.
-
-<Latex>8 x (vk x H1 - H2) = (0,1)</Latex>
-
-```md
-<Latex>8 x (vk x H1 - H2) = (0,1)</Latex>
-```
+- **Tailwind v4** uses `@theme inline` in `globals.css` (no `tailwind.config.ts`).
+- **Color tokens** — `sift-amber` (maroon primary), `sift-green`, `sift-red`, `sift-blue`, `sift-purple`, `sift-surface`, `sift-surface-raised`.
+- **`font-mono`** is reserved for data (course codes, GPA, percentages, credits) — never for labels, headings, or body text.
+- **Grade distributions** are stored as decimals (0–1) and rendered as percentages in the UI.
+- **Completed courses** live in `localStorage` (`sift_completed_courses`) for unauthenticated browsing, with a migration path to the user profile after sign-in.
+- **Server vs. client components** — prefer server components; only opt into client components when you need interactivity. The dev server uses the `--webpack` flag.
+- **Loading states** — every route has a `loading.tsx` Suspense boundary. A `NavProgress` bar (`client/src/components/nav-progress.tsx`) animates during route transitions.
+- **User-facing errors must be friendly** — never expose raw API errors, port numbers, or "make sure the backend is running" messages.

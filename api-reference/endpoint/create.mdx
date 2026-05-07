@@ -1,4 +1,72 @@
 ---
-title: 'Create Plant'
-openapi: 'POST /plants'
+title: "Create Plant"
+openapi: "POST /plants"
 ---
+
+Returns ranked (course, professor) combos for a student given their completed courses, degree plan, and weighting preferences.
+
+## Auth
+
+Public — no auth required. The endpoint accepts completed courses in the request body, so unauthenticated users can still get personalized recommendations.
+
+## Request body
+
+```json
+{
+  "major": "CSCE",
+  "completed_courses": ["CSCE 121", "MATH 151", "ENGL 104"],
+  "weights": {
+    "gpa": 0.25,
+    "professor": 0.20,
+    "would_take_again": 0.15,
+    "difficulty": 0.15,
+    "requirement": 0.15,
+    "schedule": 0.0
+  },
+  "limit": 25
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `major` | `string` | Major code used to compute remaining requirements |
+| `completed_courses` | `string[]` | Course codes the student has already completed |
+| `weights` | `object` | Optional override of the default scoring weights |
+| `limit` | `number` | Optional cap on returned combos (default 50) |
+
+## Response
+
+```json
+{
+  "data": {
+    "courses": [
+      {
+        "course": { "code": "CSCE 221", "title": "Data Structures and Algorithms" },
+        "professor": { "name": "Dr. Example", "rating": 4.6 },
+        "score": 0.872,
+        "score_breakdown": {
+          "gpa": 0.83,
+          "professor": 0.92,
+          "would_take_again": 0.95,
+          "difficulty": 0.7,
+          "requirement": 1.0
+        }
+      }
+    ],
+    "warnings": [
+      {
+        "type": "killer_combo",
+        "courses": ["CSCE 312", "CSCE 411"],
+        "message": "These two are notoriously brutal together — consider splitting across semesters."
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+## Notes
+
+- `schedule` weight is currently disabled (default `0`) — section meeting times aren't ingested in V1.
+- Killer-combo warnings come from `services/workload.ts` (hardcoded CSCE pairings \+ a difficulty heuristic).
+- Equivalencies (e.g. MATH 151 ≡ MATH 171) are mapped centrally in `services/requirements.ts`.

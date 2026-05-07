@@ -1,87 +1,53 @@
 ---
-title: 'Navigation'
-description: 'The navigation field in docs.json defines the pages that go in the navigation menu'
-icon: 'map'
+title: "Navigation"
+description: "The navigation field in docs.json defines the pages that go in the navigation menu"
+icon: "map"
 ---
 
-The navigation menu is the list of links on every website.
+Sift uses **Clerk** for authentication. The frontend uses `@clerk/nextjs`, the backend uses `@clerk/express`. Tokens are passed via `Authorization: Bearer` from client to server.
 
-You will likely update `docs.json` every time you add a new page. Pages do not show up automatically.
+## Frontend (Next.js)
 
-## Navigation syntax
+- `client/middleware.ts` — wraps the app in `clerkMiddleware()` and protects the `/` and `/plan` routes
+- Sign-in / sign-up routes — `/sign-in` and `/sign-up` (configured via `NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `NEXT_PUBLIC_CLERK_SIGN_UP_URL`)
+- Token retrieval — `client/src/lib/auth-token.ts` calls Clerk's session API before each fetch and the result is attached as a Bearer header by `fetcher()`
 
-Our navigation syntax is recursive which means you can make nested navigation groups. You don't need to include `.mdx` in page names.
-
-<CodeGroup>
-
-```json Regular Navigation
-"navigation": {
-  "tabs": [
-    {
-      "tab": "Docs",
-      "groups": [
-        {
-          "group": "Getting Started",
-          "pages": ["quickstart"]
-        }
-      ]
-    }
-  ]
-}
+```ts
+// client/src/lib/api.ts
+const token = await getAuthToken();
+const res = await fetch(url, {
+  headers: { Authorization: `Bearer ${token}` },
+});
 ```
 
-```json Nested Navigation
-"navigation": {
-  "tabs": [
-    {
-      "tab": "Docs",
-      "groups": [
-        {
-          "group": "Getting Started",
-          "pages": [
-            "quickstart",
-            {
-              "group": "Nested Reference Pages",
-              "pages": ["nested-reference-page"]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
+## Backend (Express)
+
+- `clerkMiddleware()` runs on **all** requests so any handler can read auth state
+- `requireAuth` (`server/src/middleware/auth.ts`) extracts `userId` and rejects unauthenticated requests
+- Apply it only to routes that actually need a user — public endpoints (courses, professors, recommendations without history) skip it
+
+```ts
+router.get('/profile', requireAuth, async (req, res) => {
+  const { userId } = req.auth;
+  // ...
+});
 ```
 
-</CodeGroup>
+## Which endpoints require auth?
 
-## Folders
+See the [API Reference](/api-reference/introduction) — every endpoint marks whether auth is required.
 
-Simply put your MDX files in folders and update the paths in `docs.json`.
+In short: anything that reads or writes user-scoped data (`/profile`, `/transcript/parse`, `/planner/*`) requires auth. Public catalog data (`/courses`, `/professors`, `/recommendations`, `/degree-plan/*`) does not.
 
-For example, to have a page at `https://yoursite.com/your-folder/your-page` you would make a folder called `your-folder` containing an MDX file called `your-page.mdx`.
+## Rate limits
 
-<Warning>
+| Bucket | Window | Limit |
+| --- | --- | --- |
+| General API | 15 min | 300 requests |
+| Transcript upload | 15 min | 10 requests |
 
-You cannot use `api` for the name of a folder unless you nest it inside another folder. Mintlify uses Next.js which reserves the top-level `api` folder for internal server calls. A folder name such as `api-reference` would be accepted.
+Transcript upload is rate-limited tighter because it triggers expensive Claude API calls (PDF parsing \+ structured extraction).
 
-</Warning>
-
-```json Navigation With Folder
-"navigation": {
-  "tabs": [
-    {
-      "tab": "Docs",
-      "groups": [
-        {
-          "group": "Group Name",
-          "pages": ["your-folder/your-page"]
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Hidden pages
-
-MDX files not included in `docs.json` will not show up in the sidebar but are accessible through the search bar and by linking directly to them.
+<Note>
+  The backend trusts the proxy (`app.set('trust proxy', 1)`) so rate limits work correctly behind Railway's load balancer. Don't remove this — without it everyone shares the same rate-limit bucket via a single proxy IP.
+</Note>
