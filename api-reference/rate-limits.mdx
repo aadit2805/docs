@@ -1,0 +1,69 @@
+---
+title: 'Rate limits'
+description: 'How API rate limiting works, the 429 response, and the Retry-After header'
+---
+
+The API enforces a per-client rate limit to protect against abuse and keep service responsive for everyone.
+
+## Limits
+
+Requests are limited using a fixed window, keyed by client IP address.
+
+| Limit              | Value                  |
+| ------------------ | ---------------------- |
+| Maximum requests   | 100 per client IP      |
+| Window length      | 60 seconds             |
+| Scope              | Per IP address         |
+
+Each window starts on your first request and resets 60 seconds later. Once the window resets, your request count returns to zero.
+
+## Exceeding the limit
+
+When you exceed 100 requests in a 60-second window, the API responds with HTTP `429 Too Many Requests` and a JSON body:
+
+```json
+{
+  "error": "rate limit exceeded"
+}
+```
+
+### Retry-After header
+
+`429` responses include a `Retry-After` header indicating the number of seconds until the current window resets and requests are accepted again.
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 27
+Content-Type: application/json
+
+{ "error": "rate limit exceeded" }
+```
+
+Wait at least the number of seconds specified in `Retry-After` before sending another request.
+
+## Handling rate limits
+
+<Tip>
+  Always check for `429` responses and honor the `Retry-After` header instead of retrying immediately.
+</Tip>
+
+A typical client should:
+
+1. Send requests normally until a `429` is returned.
+2. Read the `Retry-After` header value.
+3. Pause for that many seconds before retrying.
+4. Resume normal traffic after the window resets.
+
+```ts
+async function callApi(url: string) {
+  const res = await fetch(url);
+
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('Retry-After') ?? '1');
+    await new Promise((r) => setTimeout(r, retryAfter * 1000));
+    return callApi(url);
+  }
+
+  return res.json();
+}
+```
