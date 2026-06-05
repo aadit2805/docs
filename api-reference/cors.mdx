@@ -1,0 +1,56 @@
+---
+title: 'CORS'
+description: 'Configure cross-origin requests with the CORS middleware'
+---
+
+The API includes a CORS middleware that controls which origins can make cross-origin requests, sets the standard `Access-Control-*` response headers, and handles preflight `OPTIONS` requests.
+
+## Configuration
+
+Allowed origins are read from the `ALLOWED_ORIGINS` environment variable as a comma-separated list. Use `*` to allow any origin.
+
+```bash
+# Allow any origin (default)
+ALLOWED_ORIGINS=*
+
+# Allow specific origins
+ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+```
+
+Behavior:
+
+- When `ALLOWED_ORIGINS` is `*`, every request receives `Access-Control-Allow-Origin: *`.
+- When a request's `Origin` header matches an entry in `ALLOWED_ORIGINS`, the response echoes that origin in `Access-Control-Allow-Origin` and adds `Vary: Origin`.
+- Origins not in the list receive no `Access-Control-Allow-Origin` header and are blocked by the browser.
+
+If `ALLOWED_ORIGINS` is unset, the middleware defaults to `*`.
+
+## Response headers
+
+Every response includes:
+
+| Header | Value |
+| --- | --- |
+| `Access-Control-Allow-Methods` | `GET, POST, PUT, DELETE, OPTIONS` |
+| `Access-Control-Allow-Headers` | `Content-Type, x-api-key` |
+
+To send a custom request header, add it to `Access-Control-Allow-Headers` in the middleware.
+
+## Preflight requests
+
+`OPTIONS` requests are short-circuited and return `204 No Content` with the CORS headers above. The downstream route handlers are not invoked for preflight requests.
+
+```http
+OPTIONS /v1/resource HTTP/1.1
+Origin: https://app.example.com
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: Content-Type, x-api-key
+```
+
+```http
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: https://app.example.com
+Vary: Origin
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+Access-Control-Allow-Headers: Content-Type, x-api-key
+```
