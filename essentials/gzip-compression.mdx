@@ -1,0 +1,61 @@
+---
+title: "Gzip compression middleware"
+description: "Compress JSON responses with gzip to reduce payload size"
+icon: "file-zipper"
+---
+
+The gzip compression middleware reduces the size of JSON responses before sending them to the client. Smaller payloads mean faster transfers and lower bandwidth costs.
+
+## How it works
+
+The middleware wraps `res.json` and applies gzip compression when both conditions are met:
+
+- The client sends an `Accept-Encoding` header that includes `gzip`.
+- The serialized JSON payload is at least **1 KB** (1024 bytes).
+
+When the payload is compressed, the response includes:
+
+- `Content-Encoding: gzip`
+- `Content-Type: application/json`
+
+If either condition is not met, the response is sent uncompressed and the middleware acts as a no-op.
+
+## Usage
+
+Register the middleware on your Express app before your routes.
+
+```ts app.ts
+import express from "express";
+import { compression } from "./compression";
+
+const app = express();
+
+app.use(compression);
+
+app.get("/items", (req, res) => {
+  res.json({ items: largeArray });
+});
+```
+
+## Behavior
+
+| Condition                                  | Result                                |
+| ------------------------------------------ | ------------------------------------- |
+| Client omits `Accept-Encoding: gzip`       | Response sent uncompressed            |
+| Payload smaller than 1 KB                  | Response sent uncompressed            |
+| Client supports gzip and payload is at least 1 KB | Response gzipped with matching headers |
+
+## Verifying compression
+
+Send a request with the `Accept-Encoding: gzip` header and inspect the response headers.
+
+```bash
+curl -H "Accept-Encoding: gzip" -I https://api.example.com/items
+```
+
+Look for `Content-Encoding: gzip` in the response. If the header is absent, the payload was below the 1 KB threshold or the client did not advertise gzip support.
+
+## Notes
+
+- Compression runs synchronously using `zlib.gzipSync`. For very large payloads, consider switching to the streaming `zlib.createGzip` API.
+- Only responses sent through `res.json` are compressed. Responses sent with `res.send`, `res.end`, or other methods are not affected.

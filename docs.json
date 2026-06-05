@@ -38,6 +38,12 @@
             ]
           },
           {
+            "group": "Middleware",
+            "pages": [
+              "essentials/gzip-compression"
+            ]
+          },
+          {
             "group": "AI tools",
             "pages": [
               "ai-tools/cursor",
