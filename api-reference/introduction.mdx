@@ -22,12 +22,25 @@ There are two ways to build API documentation: [OpenAPI](https://mintlify.com/do
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+All API endpoints require an API key. Send your key on every request using the `x-api-key` header:
+
+```bash
+curl https://api.example.com/me \
+  -H "x-api-key: $API_KEY"
+```
+
+The server validates the header against the `API_KEY` environment variable. Requests with a missing or invalid key are rejected with `401 Unauthorized`:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "error": "invalid or missing API key"
+}
 ```
+
+<Note>
+  Treat your API key like a password. Store it in an environment variable and never commit it to source control.
+</Note>
+
+### Identifying the caller
+
+Use [`GET /me`](/api-reference/endpoint/me) to verify your key and confirm the authenticated caller.

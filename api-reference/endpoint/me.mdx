@@ -1,0 +1,37 @@
+---
+title: 'Get current user'
+description: 'Returns the authenticated caller'
+---
+
+Returns the identity of the caller authenticated by the `x-api-key` header. Use this endpoint to verify that your API key is valid.
+
+## Request
+
+```bash
+curl https://api.example.com/me \
+  -H "x-api-key: $API_KEY"
+```
+
+### Headers
+
+<ParamField header="x-api-key" type="string" required>
+  Your API key. Must match the server's `API_KEY` environment variable.
+</ParamField>
+
+## Response
+
+<ResponseField name="authenticated" type="boolean">
+  `true` when the request was authenticated successfully.
+</ResponseField>
+
+```json 200 OK
+{
+  "authenticated": true
+}
+```
+
+```json 401 Unauthorized
+{
+  "error": "invalid or missing API key"
+}
+```
