@@ -1,0 +1,49 @@
+---
+title: 'Create user'
+description: 'Create a new user.'
+---
+
+## Request
+
+```http
+POST /users
+```
+
+### Body
+
+<ParamField body="name" type="string" required>
+  The user's name. Must be a non-empty string.
+</ParamField>
+
+## Response
+
+Returns `201 Created` on success.
+
+<ResponseField name="id" type="integer">
+  Unique identifier for the newly created user.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  The user's name, as supplied in the request body.
+</ResponseField>
+
+### Errors
+
+| Status | Reason |
+| ------ | ------ |
+| `400`  | `name` is missing or not a string. |
+
+### Example
+
+```bash cURL
+curl -X POST "https://api.example.com/users" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Ada Lovelace"}'
+```
+
+```json Response
+{
+  "id": 1733779200000,
+  "name": "Ada Lovelace"
+}
+```
