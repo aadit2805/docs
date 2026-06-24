@@ -3,16 +3,24 @@ title: 'Create user'
 description: 'Create a new user.'
 ---
 
+Creates a single user and returns the newly assigned `id`. The endpoint is not idempotent — repeated requests create distinct users.
+
 ## Request
 
 ```http
 POST /users
 ```
 
+### Headers
+
+<ParamField header="Content-Type" type="string" required>
+  Must be `application/json`.
+</ParamField>
+
 ### Body
 
 <ParamField body="name" type="string" required>
-  The user's name. Must be a non-empty string.
+  The user's name. Must be a non-empty string. Leading and trailing whitespace is preserved.
 </ParamField>
 
 ## Response
@@ -20,26 +28,58 @@ POST /users
 Returns `201 Created` on success.
 
 <ResponseField name="id" type="integer">
-  Unique identifier for the newly created user.
+  Unique identifier assigned to the newly created user.
 </ResponseField>
 
 <ResponseField name="name" type="string">
-  The user's name, as supplied in the request body.
+  The user's name, echoed back from the request body.
 </ResponseField>
 
-### Errors
+## Errors
 
-| Status | Reason |
-| ------ | ------ |
-| `400`  | `name` is missing or not a string. |
+| Status | Reason                                                    |
+| ------ | --------------------------------------------------------- |
+| `400`  | `name` is missing, empty, or not a string.                |
+| `415`  | `Content-Type` is not `application/json`.                 |
 
-### Example
+A `400` response has the following shape:
+
+```json
+{
+  "error": "name is required and must be a string"
+}
+```
+
+## Example
+
+<CodeGroup>
 
 ```bash cURL
 curl -X POST "https://api.example.com/users" \
   -H "Content-Type: application/json" \
   -d '{"name": "Ada Lovelace"}'
 ```
+
+```javascript Node.js
+const res = await fetch("https://api.example.com/users", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ name: "Ada Lovelace" }),
+});
+
+const user = await res.json();
+```
+
+```python Python
+import requests
+
+user = requests.post(
+    "https://api.example.com/users",
+    json={"name": "Ada Lovelace"},
+).json()
+```
+
+</CodeGroup>
 
 ```json Response
 {
