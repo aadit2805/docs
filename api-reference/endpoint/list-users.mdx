@@ -11,6 +11,10 @@ Returns users in insertion order. Use `limit` and `offset` to page through resul
 GET /users
 ```
 
+<Note>
+  Requests are authenticated with a bearer token. See [Introduction](/api-reference/introduction#authentication).
+</Note>
+
 ### Query parameters
 
 <ParamField query="limit" type="integer" default="20">
@@ -127,3 +131,7 @@ data = requests.get(
   ]
 }
 ```
+
+## See also
+
+- [Create user](/api-reference/endpoint/create-user) — add a new user to the collection.
