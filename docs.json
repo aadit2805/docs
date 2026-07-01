@@ -42,7 +42,6 @@
             "pages": [
               "ai-tools/cursor",
               "ai-tools/claude-code",
-              "ai-tools/claude-models",
               "ai-tools/windsurf"
             ]
           }
